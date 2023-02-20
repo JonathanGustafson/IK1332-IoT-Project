@@ -8,6 +8,10 @@
  * 
  *******************************************************************************/
 
+//###TEMP INCLUDES###
+#include <time.h>
+//###################
+
 #include <string>
 #include <string.h>
 #include <stdio.h>
@@ -435,6 +439,10 @@ void txlora(byte *frame, byte datalen) {
     printf("send: %s\n", frame);
 }
 
+int getTemp(){
+    return rand() % 1000;
+}
+
 int main (int argc, char *argv[]) {
 
     if (argc < 2) {
@@ -465,24 +473,27 @@ int main (int argc, char *argv[]) {
 
         if (argc > 2) 
             strncpy((char *)nodeNumber, argv[2], sizeof(nodeNumber));
-        if (argc > 3)
-            strncpy((char *)tempValue, argv[3], sizeof(tempValue));
 
         /*char m[] = "Node: y, Temp: xx.x C";
         m[6] = (char)((int)nodeNumber + 48);
         m[] = (char)((int)tempValue[]*/
         
         //byte m[] = {nodeNumber[0], tempValue[0], tempValue[1], tempValue[2], tempValue[3]};
-        
-        byte m[22] = "Node: ";
-        //strcat((char*)m, "Node: ");
-        strcat((char*)m, (char*)nodeNumber);
-        strcat((char*)m, ", Temp: ");
-        strcat((char*)m, (char*)tempValue);
-        strcat((char*)m, " C\n");
-
 
         while(1) {
+            char temperature [3];
+            sprintf(temperature,"%d", getTemp());
+            strncpy((char*)tempValue, temperature, sizeof(tempValue));
+            
+             byte m[22] = "Node: ";
+            //strcat((char*)m, "Node: ");
+            strcat((char*)m, (char*)nodeNumber);
+            strcat((char*)m, ", Temp: ");
+            strcat((char*)m, (char*)tempValue);
+            strcat((char*)m, " C\n");
+            
+            
+            
             txlora(m, strlen((char *)m));
             delay(2000);
         }
