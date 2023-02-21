@@ -499,6 +499,12 @@ void txlora(byte *frame, byte datalen) {
     printf("send: %s\n", frame);
 }
 
+
+/*
+ * The content of this function is taken from: https://www.waveshare.com/wiki/Raspberry_Pi_Tutorial_Series:_1-Wire_DS18B20_Sensor
+ * 
+ * the content has been edited by Malin & Axel
+ */
 int getTemp(){
     char path[50] = "/sys/bus/w1/devices/";
     char rom[20];
