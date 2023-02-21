@@ -4,7 +4,10 @@
  *
  * http://www.dragino.com
  *
- * Edited by: Jonathan Gustafson
+ * Edited by:   Jonathan Gustafson
+ *              Malin Otter
+ *              Axel Stemme
+ *              Linus Holmström
  * 
  *******************************************************************************/
 
