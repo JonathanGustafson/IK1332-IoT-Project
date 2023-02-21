@@ -28,11 +28,7 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-// #############################################
-// Defines added by group 1
-// #############################################
 
-#define nodeNr 1
 
 // #############################################
 // #############################################
@@ -190,7 +186,7 @@ uint32_t  freq = 868100000; // in Mhz! (868.1)
 byte nodeNumber[] = "Y";
 byte tempValue[] = "XX.X";
 
-int nodeTempData[2];
+int nodeTempData[10];
 /*
  *  0 [273] => Node: 0 -> Temp 27.3 °C  
  *  1 [257] => Node: 1 -> Temp 25.7 °C
@@ -355,7 +351,7 @@ boolean receive(char *payload) {
 /****************************/
 /*Jonathans code starts here*/
 
-int extractNode(char *  msg, int size){
+int extractNode(char*  msg, int size){
     
     for(int i = 0; i < size-4; i++){
         if( msg[i]      == 'N' && 
@@ -371,16 +367,25 @@ int extractNode(char *  msg, int size){
     return -1;
 }
 
-int extractTemp(char* msg){
-    
-    
+//Node: X, Temp: YYY C
+int extractTemp(char* msg, int size){
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'T' && 
+            msg[i+1]    == 'e' && 
+            msg[i+2]    == 'm' && 
+            msg[i+3]    == 'p'){
+               
+            return ((((int)msg[i+6]-48)*100)+(((int)msg[i+7]-48)*10) +((int)msg[i+8]-48));
+            //char[3] = {msg[], msg[], msg[]};
+        }
+    }
     
     return -1;
 }
 
 void printDataTable(){
-    for(int i = 0; i < 2; i++){
-        printf("[Node:%d, Temp:%d]\n", i, nodeTempData[i]);
+    for(int i = 0; i < 10; i++){
+        printf("[Node:%d, Temp:%2.1f]\n", i, ((float)nodeTempData[i])/10);
     }
 }
 
@@ -417,14 +422,15 @@ void receivepacket() {
                 rssicorr = 157;
             }
 
-            printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
+            //Print packet information
+            /*printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
             printf("RSSI: %d, ", readReg(0x1B)-rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
-            printf("Payload: %s\n", message);
+            printf("Payload: %s\n", message);*/
             
-            nodeTempData[extractNode(message,22)] = 686;
+            nodeTempData[extractNode(message,22)] = extractTemp(message,22);
             printDataTable();
 
         } // received a message
