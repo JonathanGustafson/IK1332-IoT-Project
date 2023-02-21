@@ -60,7 +60,7 @@
 // LOW NOISE AMPLIFIER
 #define REG_LNA                     0x0C
 #define LNA_MAX_GAIN                0x23
-#define LNA_OFF_GAIN                0x00
+#define LNA_OFF_GAIN                0x00 
 #define LNA_LOW_GAIN		    	0x20
 
 #define RegDioMapping1                             0x40 // common
@@ -367,7 +367,7 @@ int extractNode(char*  msg, int size){
     return -1;
 }
 
-//Node: X, Temp: YYY C
+//Node: X, Temp: YYY C°
 int extractTemp(char* msg, int size){
     for(int i = 0; i < size-4; i++){
         if( msg[i]      == 'T' && 
@@ -384,8 +384,9 @@ int extractTemp(char* msg, int size){
 }
 
 void printDataTable(){
+    printf("Stat update: \n");
     for(int i = 0; i < 10; i++){
-        printf("[Node:%d, Temp:%2.1f]\n", i, ((float)nodeTempData[i])/10);
+        printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
     }
 }
 
