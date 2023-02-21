@@ -355,16 +355,16 @@ boolean receive(char *payload) {
 /****************************/
 /*Jonathans code starts here*/
 
-int extractNode(char msg*, int size){
+int extractNode(char *  msg, int size){
     
     for(int i = 0; i < size-4; i++){
-        if( msg[i]      = 'N' && 
-            msg[i+1]    = 'o' && 
-            msg[i+2]    = 'd' && 
-            msg[i+3]    = 'e'){
+        if( msg[i]      == 'N' && 
+            msg[i+1]    == 'o' && 
+            msg[i+2]    == 'd' && 
+            msg[i+3]    == 'e'){
                 
-            char *msgNode = {msg[i+6]};
-            return atoi(msgNode)
+            
+            return (int)msg[i+6]-48;
         }
     }
     
