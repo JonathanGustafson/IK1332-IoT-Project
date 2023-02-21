@@ -186,8 +186,17 @@ sf_t sf = SF7;
 // Set center frequency
 uint32_t  freq = 868100000; // in Mhz! (868.1)
 
+//Packet information - added by Jonathan Gustafson
 byte nodeNumber[] = "Y";
 byte tempValue[] = "XX.X";
+
+int nodeTempData[2];
+/*
+ *  0 [273] => Node: 0 -> Temp 27.3 °C  
+ *  1 [257] => Node: 1 -> Temp 25.7 °C
+ *  2 [239] => Node: 2 -> Temp 23.9 °C
+ * 
+ */
 
 void die(const char *s)
 {
@@ -343,6 +352,44 @@ boolean receive(char *payload) {
     return true;
 }
 
+/****************************/
+/*Jonathans code starts here*/
+
+int extractNode(char msg*, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      = 'N' && 
+            msg[i+1]    = 'o' && 
+            msg[i+2]    = 'd' && 
+            msg[i+3]    = 'e'){
+                
+            char *msgNode = {msg[i+6]};
+            return atoi(msgNode)
+        }
+    }
+    
+    return -1;
+}
+
+int extractTemp(char* msg){
+    
+    
+    
+    return -1;
+}
+
+void printDataTable(){
+    for(int i = 0; i < 2; i++){
+        printf("[Node:%d, Temp:%d]\n", i, nodeTempData[i]);
+    }
+}
+
+/*Jonathans code ends here*/
+/****************************/
+
+/*
+ * EDITED BY JONATHAN GUSTAFSON
+ */
 void receivepacket() {
 
     long int SNR;
@@ -376,6 +423,9 @@ void receivepacket() {
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
             printf("Payload: %s\n", message);
+            
+            nodeTempData[extractNode(message,22)] = 686;
+            printDataTable();
 
         } // received a message
 
@@ -468,23 +518,21 @@ int main (int argc, char *argv[]) {
 
         configPower(23);
 
-        printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
+         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
 
         if (argc > 2) 
             strncpy((char *)nodeNumber, argv[2], sizeof(nodeNumber));
 
-        /*char m[] = "Node: y, Temp: xx.x C";
-        m[6] = (char)((int)nodeNumber + 48);
-        m[] = (char)((int)tempValue[]*/
-        
-        //byte m[] = {nodeNumber[0], tempValue[0], tempValue[1], tempValue[2], tempValue[3]};
 
         while(1) {
+            
+            //get temperature
             char temperature [3];
-            sprintf(temperature,"%d", getTemp());
+            sprintf(temperature,"%d", getTemp()); //getTemp currently gathers a random 3 digit nr
             strncpy((char*)tempValue, temperature, sizeof(tempValue));
             
+            //construct message which shall be sent
              byte m[22] = "Node: ";
             //strcat((char*)m, "Node: ");
             strcat((char*)m, (char*)nodeNumber);
@@ -492,8 +540,7 @@ int main (int argc, char *argv[]) {
             strcat((char*)m, (char*)tempValue);
             strcat((char*)m, " C\n");
             
-            
-            
+            //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(2000);
         }
