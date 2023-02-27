@@ -650,6 +650,7 @@ int main (int argc, char *argv[]) {
             if(digitalRead(dio0) == 1){
                 if(receive(message)){
                     //Check target
+                    printf("My nodeNumber: %d, Message target: %d\n", atoi((char*)nodeNumber), extractTarget(message));
                     if(atoi((char*)nodeNumber) == extractTarget(message)){
                         //forward message
                         printf("I got a message that i will now forward cuz im a good node \n");
