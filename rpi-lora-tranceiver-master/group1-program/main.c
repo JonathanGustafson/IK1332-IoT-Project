@@ -623,6 +623,7 @@ int main (int argc, char *argv[]) {
             
         while(1) {
             
+            /*********SENDING OWN DATA***********/
             //get temperature
             char temperature [3];
             sprintf(temperature,"%d", getRandTemp()); 
@@ -641,6 +642,37 @@ int main (int argc, char *argv[]) {
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(2000);
+            /***************************************/
+            
+            
+            /***LISTENING FOR MESSAGES TO FORWARD***/
+            
+            if(digitalRead(dio0) == 1){
+                if(receive(message)){
+                    //Check target
+                    if(atoi((char*)nodeNumber) == extractTarget(message)){
+                        //forward message
+                        byte fwdMsg[msgSize];
+                        strcpy((char*)fwdMsg, (char*)message);
+                        
+                        //find target index
+                        int i = 0;
+                        while( !(fwdMsg[i]   == 'T' &&
+                                fwdMsg[i+1] == 'a' &&
+                                fwdMsg[i+2] == ':')){
+                            i++;
+                        }
+                        fwdMsg[i+3] = (char)targetNode[0];
+                        
+                        //Transmit message through the LoRa protocol
+                        txlora(fwdMsg, strlen((char *)fwdMsg));
+                    }
+                }
+            }
+            
+            /***************************************/
+            
+            
         }
     } else { // MASTER
         
@@ -657,10 +689,9 @@ int main (int argc, char *argv[]) {
             delay(1);
             if(digitalRead(dio0) == 1){
                 if(receive(message)){
-                    printf("MESSAGE RECEIVED\n");
+                    printf("ooo i heard something\n");
                     //Check target
                     if(0 == extractTarget(message)){
-                        printf("TARGET CORRECT\n");
                         //update and print temperatures
                         nodeTempData[extractNode(message)] = extractData(message);
                         printDataTable();
