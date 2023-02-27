@@ -4,9 +4,16 @@
  *
  * http://www.dragino.com
  *
- * Edited by: Jonathan Gustafson
+ * Edited by:   Jonathan Gustafson
+ *              Malin Otter
+ *              Axel Stemme
+ *              Linus Holmström
  * 
  *******************************************************************************/
+
+//###TEMP INCLUDES###
+#include <time.h>
+//###################
 
 #include <string>
 #include <string.h>
@@ -24,11 +31,7 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-// #############################################
-// Defines added by group 1
-// #############################################
 
-#define nodeNr 1
 
 // #############################################
 // #############################################
@@ -60,7 +63,7 @@
 // LOW NOISE AMPLIFIER
 #define REG_LNA                     0x0C
 #define LNA_MAX_GAIN                0x23
-#define LNA_OFF_GAIN                0x00
+#define LNA_OFF_GAIN                0x00 
 #define LNA_LOW_GAIN		    	0x20
 
 #define RegDioMapping1                             0x40 // common
@@ -182,8 +185,17 @@ sf_t sf = SF7;
 // Set center frequency
 uint32_t  freq = 868100000; // in Mhz! (868.1)
 
+//Packet information - added by Jonathan Gustafson
 byte nodeNumber[] = "Y";
 byte tempValue[] = "XX.X";
+
+int nodeTempData[10];
+/*
+ *  0 [273] => Node: 0 -> Temp 27.3 °C  
+ *  1 [257] => Node: 1 -> Temp 25.7 °C
+ *  2 [239] => Node: 2 -> Temp 23.9 °C
+ * 
+ */
 
 void die(const char *s)
 {
@@ -339,6 +351,54 @@ boolean receive(char *payload) {
     return true;
 }
 
+/****************************/
+/*Jonathans code starts here*/
+
+int extractNode(char*  msg, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'N' && 
+            msg[i+1]    == 'o' && 
+            msg[i+2]    == 'd' && 
+            msg[i+3]    == 'e'){
+                
+            
+            return (int)msg[i+6]-48;
+        }
+    }
+    
+    return -1;
+}
+
+//Node: X, Temp: YYY C°
+int extractTemp(char* msg, int size){
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'T' && 
+            msg[i+1]    == 'e' && 
+            msg[i+2]    == 'm' && 
+            msg[i+3]    == 'p'){
+               
+            return ((((int)msg[i+6]-48)*100)+(((int)msg[i+7]-48)*10) +((int)msg[i+8]-48));
+            //char[3] = {msg[], msg[], msg[]};
+        }
+    }
+    
+    return -1;
+}
+
+void printDataTable(){
+    printf("Stat update: \n");
+    for(int i = 0; i < 10; i++){
+        printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
+    }
+}
+
+/*Jonathans code ends here*/
+/****************************/
+
+/*
+ * EDITED BY JONATHAN GUSTAFSON
+ */
 void receivepacket() {
 
     long int SNR;
@@ -366,12 +426,16 @@ void receivepacket() {
                 rssicorr = 157;
             }
 
-            printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
+            //Print packet information
+            /*printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
             printf("RSSI: %d, ", readReg(0x1B)-rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
-            printf("Payload: %s\n", message);
+            printf("Payload: %s\n", message);*/
+            
+            nodeTempData[extractNode(message,22)] = extractTemp(message,22);
+            printDataTable();
 
         } // received a message
 
@@ -435,6 +499,75 @@ void txlora(byte *frame, byte datalen) {
     printf("send: %s\n", frame);
 }
 
+
+/*
+ * The content of this function is taken from: https://www.waveshare.com/wiki/Raspberry_Pi_Tutorial_Series:_1-Wire_DS18B20_Sensor
+ * 
+ * the content has been edited by Malin & Axel
+ */
+int getTemp(){
+    char path[50] = "/sys/bus/w1/devices/";
+    char rom[20];
+    char buf[100];
+    DIR *dirp;
+    struct dirent *direntp;
+    int fd =-1;
+    char *temp;
+    int value;
+   
+    // These tow lines mount the device:
+    system("sudo modprobe w1-gpio");
+    system("sudo modprobe w1-therm");
+    // Check if /sys/bus/w1/devices/ exists.
+    if((dirp = opendir(path)) == NULL)
+    {
+        printf("opendir error\n");
+        return 1;
+    }
+    // Reads the directories or files in the current directory.
+    while((direntp = readdir(dirp)) != NULL)
+    {
+        // If 28-00000 is the substring of d_name,
+        // then copy d_name to rom and print rom.  
+        if(strstr(direntp->d_name,"28-00000"))
+        {
+            strcpy(rom,direntp->d_name);
+            //printf(" rom: %s\n",rom);
+        }
+    }
+    closedir(dirp);
+    // Append the String rom and "/w1_slave" to path
+    // path becomes to "/sys/bus/w1/devices/28-00000xxxx/w1_slave"
+    strcat(path,rom);
+    strcat(path,"/w1_slave");
+    while(1)
+    {
+        // Open the file in the path.
+        if((fd = open(path,O_RDONLY)) < 0)
+        {
+            printf("open error\n");
+            return 1;
+        }
+        // Read the file
+        if(read(fd,buf,sizeof(buf)) < 0)
+        {
+            printf("read error\n");
+            return 1;
+        }
+        // Returns the first index of 't'.
+        temp = strchr(buf,'t');
+        // Read the string following "t=".
+        sscanf(temp,"t=%s",temp);
+        // atof: changes string to float.
+        value = atof(temp)/100;
+       
+        return value;
+        //printf(" temp : %3.3f °C\n",value);
+ 
+        sleep(1);
+    }
+}
+
 int main (int argc, char *argv[]) {
 
     if (argc < 2) {
@@ -460,29 +593,29 @@ int main (int argc, char *argv[]) {
 
         configPower(23);
 
-        printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
+         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
 
         if (argc > 2) 
             strncpy((char *)nodeNumber, argv[2], sizeof(nodeNumber));
-        if (argc > 3)
-            strncpy((char *)tempValue, argv[3], sizeof(tempValue));
-
-        /*char m[] = "Node: y, Temp: xx.x C";
-        m[6] = (char)((int)nodeNumber + 48);
-        m[] = (char)((int)tempValue[]*/
-        
-        //byte m[] = {nodeNumber[0], tempValue[0], tempValue[1], tempValue[2], tempValue[3]};
-        
-        byte m[22] = "Node: ";
-        //strcat((char*)m, "Node: ");
-        strcat((char*)m, (char*)nodeNumber);
-        strcat((char*)m, ", Temp: ");
-        strcat((char*)m, (char*)tempValue);
-        strcat((char*)m, " C\n");
 
 
         while(1) {
+            
+            //get temperature
+            char temperature [3];
+            sprintf(temperature,"%d", getTemp()); //getTemp currently gathers a random 3 digit nr
+            strncpy((char*)tempValue, temperature, sizeof(tempValue));
+            
+            //construct message which shall be sent
+             byte m[22] = "Node: ";
+            //strcat((char*)m, "Node: ");
+            strcat((char*)m, (char*)nodeNumber);
+            strcat((char*)m, ", Temp: ");
+            strcat((char*)m, (char*)tempValue);
+            strcat((char*)m, " C\n");
+            
+            //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(2000);
         }

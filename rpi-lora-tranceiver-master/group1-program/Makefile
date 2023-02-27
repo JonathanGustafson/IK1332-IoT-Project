@@ -7,7 +7,7 @@ LIBS=-lwiringPi
 
 all: run_program
 
-dragino_lora_app: main.o
+run_program: main.o
 	$(CC) main.o  $(LIBS) -o run_program
 
 main.o: main.c
