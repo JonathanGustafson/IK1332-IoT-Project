@@ -37,7 +37,7 @@
 #include <wiringPiSPI.h>
 
 // #############################################
-#define msgSize 32
+#define msgSize 17
 
 // #############################################
 
@@ -462,9 +462,9 @@ void txlora(byte *frame, byte datalen) {
 /****************************/
 /*Group1 code starts here*/
 
-int extractNode(char*  msg, int size){
+int extractNode(char*  msg){
     
-    for(int i = 0; i < size-4; i++){
+    for(int i = 0; i < msgSize-4; i++){
         if( msg[i]      == 'N' && 
             msg[i+1]    == 'o'){
             
@@ -475,9 +475,9 @@ int extractNode(char*  msg, int size){
     return -1;
 }
 
-int extractTarget(char*  msg, int size){
+int extractTarget(char*  msg){
     
-    for(int i = 0; i < size-4; i++){
+    for(int i = 0; i < msgSize-4; i++){
         if( msg[i]      == 'T' && 
             msg[i+1]    == 'a'){
             
@@ -488,21 +488,8 @@ int extractTarget(char*  msg, int size){
     return -1;
 }
 
-int extractOp(char*  msg, int size){
-    
-    for(int i = 0; i < size-4; i++){
-        if( msg[i]      == 'O' && 
-            msg[i+1]    == 'p'){
-            
-            return (int)msg[i+3]-48;
-        }
-    }
-    
-    return -1;
-}
-
-int extractData(char* msg, int size){
-    for(int i = 0; i < size-4; i++){
+int extractData(char* msg){
+    for(int i = 0; i < msgSize-4; i++){
         if( msg[i]      == 'D' && 
             msg[i+1]    == 'a'){
                
@@ -512,39 +499,6 @@ int extractData(char* msg, int size){
     }
     
     return -1;
-}
-
-void findPath(){
-    //search for direct path 
-    while(strcmp((char*)pathNode, "X")){
-        
-        for(int i = 0; i < 10; i++){
-            for(int j = 0; j < 10; j++){
-                //find path
-                char buffer[] = {(char)(i + 48)};
-                byte m[21] = "No:";
-                strcat((char*)m, (char*)nodeNumber);
-                strcat((char*)m, " Ta:");
-                strcat((char*)m, buffer);
-                strcat((char*)m, " Op:1 Da   ");
-        
-                //Transmit message through the LoRa protocol
-                txlora(m, strlen((char *)m));
-                delay(10);
-                
-                if(receive(message)){
-                    if(extractTarget(message, msgSize) == atoi((char*)nodeNumber)){
-                        //chek if ack 
-                        if(extractOp(message, msgSize) == 2){
-                            //path to master found
-                            strncpy((char *)pathNode, (char*)(i + 48), sizeof(pathNode));
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 void printDataTable(){
@@ -636,7 +590,7 @@ int main (int argc, char *argv[]) {
         exit(1);
     }else if(argc == 3){
         if(atoi(argv[2]) == 0){
-            printf("Can't start sender with node nr 0");
+            printf("Error: Can't start sender with node nr 0\n");
             exit(1);
         }
     }
@@ -659,45 +613,15 @@ int main (int argc, char *argv[]) {
 
         configPower(23);
 
-         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
+        printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
 
         if (argc > 2) 
             strncpy((char *)nodeNumber, argv[2], sizeof(nodeNumber));
-
-        findPath();
+        if (argc > 3)
+            strncpy((char *)targetNode, argv[3], sizeof(nodeNumber));
+            
         while(1) {
-            
-            if(receive(message)){
-                if(extractTarget(message, msgSize) == atoi((char*)nodeNumber)){
-                    if(extractOp(message, msgSize) == 0){
-                        //send msg
-                        char buffer[1];
-                        byte m[21] = "No:";
-                        strcat((char*)m, (char*)sprintf(buffer, "%d", (extractTarget(message, msgSize) + 48)));
-                        strcat((char*)m, " Ta:");
-                        strcat((char*)m, (char*)targetNode);
-                        strcat((char*)m, " Op:0");
-                        strcat((char*)m, " Da:");
-                        strcat((char*)m, (char*)sprintf(buffer, "%d", (extractData(message, msgSize) + 48)));
-            
-                        //Transmit message through the LoRa protocol
-                        txlora(m, strlen((char *)m));
-                        delay(10);
-                        
-                    }
-                    else{
-                        //send ack
-                        byte m[21] = "No:";
-                        strcat((char*)m, (char*)nodeNumber);
-                        strcat((char*)m, " Ta:");
-                        strcat((char*)m, (char*)extractNode(message,msgSize));
-                        strcat((char*)m, " Op:2");
-                        strcat((char*)m, " Da:   ");
-                    }
-                }
-            }
-            
             
             //get temperature
             char temperature [3];
@@ -711,8 +635,6 @@ int main (int argc, char *argv[]) {
             strcat((char*)m, (char*)nodeNumber);
             strcat((char*)m, " Ta:");
             strcat((char*)m, (char*)targetNode);
-            strcat((char*)m, " Op:");
-            strcat((char*)m, (char*)opCode);
             strcat((char*)m, " Da:");
             strcat((char*)m, (char*)tempValue);
             
@@ -733,28 +655,18 @@ int main (int argc, char *argv[]) {
         while(1) {
             //receivepacket(); 
             delay(1);
-            if(receive(message)){
-                //Check target
-                if(0 == extractTarget(message, msgSize)){
-                    
-                    //OPERATION SWITCH
-                    if(extractOp(message, msgSize) == 0){
+            if(digitalRead(dio0) == 1){
+                if(receive(message)){
+                    printf("MESSAGE RECEIVED\n");
+                    //Check target
+                    if(0 == extractTarget(message)){
+                        printf("TARGET CORRECT\n");
                         //update and print temperatures
-                        nodeTempData[extractNode(message,msgSize)] = extractData(message,msgSize);
+                        nodeTempData[extractNode(message)] = extractData(message);
                         printDataTable();
-                    }
-                    else{
-                        //send ack
-                        byte m[21] = "No:";
-                        strcat((char*)m, (char*)nodeNumber);
-                        strcat((char*)m, " Ta:");
-                        strcat((char*)m, (char*)extractNode(message,msgSize));
-                        strcat((char*)m, " Op:2");
-                        strcat((char*)m, " Da:   ");
                     }
                 }
             }
-            
         }
 
     }
