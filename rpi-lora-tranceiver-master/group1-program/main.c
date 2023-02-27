@@ -641,7 +641,7 @@ int main (int argc, char *argv[]) {
             
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
-            delay(2000);
+            delay(8000);
             /***************************************/
             
             
@@ -652,9 +652,10 @@ int main (int argc, char *argv[]) {
                     //Check target
                     if(atoi((char*)nodeNumber) == extractTarget(message)){
                         //forward message
+                        printf("I got a message that i will now forward cuz im a good node \n");
                         byte fwdMsg[msgSize];
                         strcpy((char*)fwdMsg, (char*)message);
-                        
+                        printf("This is the message i got: %s", (char*)fwdMsg);
                         //find target index
                         int i = 0;
                         while( !(fwdMsg[i]   == 'T' &&
@@ -664,6 +665,7 @@ int main (int argc, char *argv[]) {
                         }
                         fwdMsg[i+3] = (char)targetNode[0];
                         
+                        printf("This is the message i will forward: %s", (char*)fwdMsg);
                         //Transmit message through the LoRa protocol
                         txlora(fwdMsg, strlen((char *)fwdMsg));
                     }
