@@ -13,6 +13,10 @@
 
 //###TEMP INCLUDES###
 #include <time.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 //###################
 
 #include <string>
@@ -34,6 +38,8 @@
 
 
 // #############################################
+#define msgSize 21
+
 // #############################################
 
 #define REG_FIFO                    0x00
@@ -159,8 +165,8 @@ typedef unsigned char byte;
 
 static const int CHANNEL = 0;
 
-//example message: Node: X, Temp: XX.X C\n
-char message[22];
+//example message: "No:X Ta:X Op:X Da:XXX"
+char message[msgSize];
 
 bool sx1272 = true;
 
@@ -186,8 +192,10 @@ sf_t sf = SF7;
 uint32_t  freq = 868100000; // in Mhz! (868.1)
 
 //Packet information - added by Jonathan Gustafson
-byte nodeNumber[] = "Y";
-byte tempValue[] = "XX.X";
+byte nodeNumber[]   = "X";
+byte targetNode[]   = "X";
+byte opCode[]       = "X";
+byte tempValue[]    = "XXX"; //"Data section"
 
 int nodeTempData[10];
 /*
@@ -358,27 +366,47 @@ int extractNode(char*  msg, int size){
     
     for(int i = 0; i < size-4; i++){
         if( msg[i]      == 'N' && 
-            msg[i+1]    == 'o' && 
-            msg[i+2]    == 'd' && 
-            msg[i+3]    == 'e'){
-                
+            msg[i+1]    == 'o'){
             
-            return (int)msg[i+6]-48;
+            return (int)msg[i+3]-48;
         }
     }
     
     return -1;
 }
 
-//Node: X, Temp: YYY C°
-int extractTemp(char* msg, int size){
+int extractTarget(char*  msg, int size){
+    
     for(int i = 0; i < size-4; i++){
         if( msg[i]      == 'T' && 
-            msg[i+1]    == 'e' && 
-            msg[i+2]    == 'm' && 
-            msg[i+3]    == 'p'){
+            msg[i+1]    == 'a'){
+            
+            return (int)msg[i+3]-48;
+        }
+    }
+    
+    return -1;
+}
+
+int extractOp(char*  msg, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'O' && 
+            msg[i+1]    == 'p'){
+            
+            return (int)msg[i+3]-48;
+        }
+    }
+    
+    return -1;
+}
+
+int extractData(char* msg, int size){
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'D' && 
+            msg[i+1]    == 'a'){
                
-            return ((((int)msg[i+6]-48)*100)+(((int)msg[i+7]-48)*10) +((int)msg[i+8]-48));
+            return ((((int)msg[i+3]-48)*100)+(((int)msg[i+4]-48)*10) +((int)msg[i+5]-48));
             //char[3] = {msg[], msg[], msg[]};
         }
     }
@@ -434,7 +462,7 @@ void receivepacket() {
             printf("\n");
             printf("Payload: %s\n", message);*/
             
-            nodeTempData[extractNode(message,22)] = extractTemp(message,22);
+            nodeTempData[extractNode(message,msgSize)] = extractData(message,msgSize);
             printDataTable();
 
         } // received a message
@@ -568,6 +596,10 @@ int getTemp(){
     }
 }
 
+int getRandTemp(){
+    return rand() %  1000;
+}
+
 int main (int argc, char *argv[]) {
 
     if (argc < 2) {
@@ -604,16 +636,20 @@ int main (int argc, char *argv[]) {
             
             //get temperature
             char temperature [3];
-            sprintf(temperature,"%d", getTemp()); //getTemp currently gathers a random 3 digit nr
+            sprintf(temperature,"%d", getRandTemp()); 
             strncpy((char*)tempValue, temperature, sizeof(tempValue));
             
+            //No:X Ta:X Op:X Da:XXX
+            
             //construct message which shall be sent
-             byte m[22] = "Node: ";
-            //strcat((char*)m, "Node: ");
+            byte m[21] = "No:";
             strcat((char*)m, (char*)nodeNumber);
-            strcat((char*)m, ", Temp: ");
+            strcat((char*)m, " Ta:");
+            strcat((char*)m, (char*)targetNode);
+            strcat((char*)m, " Op:");
+            strcat((char*)m, (char*)opCode);
+            strcat((char*)m, " Da:");
             strcat((char*)m, (char*)tempValue);
-            strcat((char*)m, " C\n");
             
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
