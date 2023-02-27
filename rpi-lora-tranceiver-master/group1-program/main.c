@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
+//#include "main.h"
 
 //###################
 
@@ -35,10 +36,8 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-
-
 // #############################################
-#define msgSize 21
+#define msgSize 32
 
 // #############################################
 
@@ -157,8 +156,8 @@
 #define MAP_DIO1_LORA_NOP      0x30  // --11----
 #define MAP_DIO2_LORA_NOP      0xC0  // ----11--
 
-// #############################################
-// #############################################
+
+
 //
 typedef bool boolean;
 typedef unsigned char byte;
@@ -197,13 +196,9 @@ byte targetNode[]   = "X";
 byte opCode[]       = "X";
 byte tempValue[]    = "XXX"; //"Data section"
 
-int nodeTempData[10];
-/*
- *  0 [273] => Node: 0 -> Temp 27.3 °C  
- *  1 [257] => Node: 1 -> Temp 25.7 °C
- *  2 [239] => Node: 2 -> Temp 23.9 °C
- * 
- */
+byte pathNode[]     = "X";
+
+int nodeTempData[10] = {-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666};
 
 void die(const char *s)
 {
@@ -359,71 +354,6 @@ boolean receive(char *payload) {
     return true;
 }
 
-/****************************/
-/*Jonathans code starts here*/
-
-int extractNode(char*  msg, int size){
-    
-    for(int i = 0; i < size-4; i++){
-        if( msg[i]      == 'N' && 
-            msg[i+1]    == 'o'){
-            
-            return (int)msg[i+3]-48;
-        }
-    }
-    
-    return -1;
-}
-
-int extractTarget(char*  msg, int size){
-    
-    for(int i = 0; i < size-4; i++){
-        if( msg[i]      == 'T' && 
-            msg[i+1]    == 'a'){
-            
-            return (int)msg[i+3]-48;
-        }
-    }
-    
-    return -1;
-}
-
-int extractOp(char*  msg, int size){
-    
-    for(int i = 0; i < size-4; i++){
-        if( msg[i]      == 'O' && 
-            msg[i+1]    == 'p'){
-            
-            return (int)msg[i+3]-48;
-        }
-    }
-    
-    return -1;
-}
-
-int extractData(char* msg, int size){
-    for(int i = 0; i < size-4; i++){
-        if( msg[i]      == 'D' && 
-            msg[i+1]    == 'a'){
-               
-            return ((((int)msg[i+3]-48)*100)+(((int)msg[i+4]-48)*10) +((int)msg[i+5]-48));
-            //char[3] = {msg[], msg[], msg[]};
-        }
-    }
-    
-    return -1;
-}
-
-void printDataTable(){
-    printf("Stat update: \n");
-    for(int i = 0; i < 10; i++){
-        printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
-    }
-}
-
-/*Jonathans code ends here*/
-/****************************/
-
 /*
  * EDITED BY JONATHAN GUSTAFSON
  */
@@ -454,16 +384,18 @@ void receivepacket() {
                 rssicorr = 157;
             }
 
-            //Print packet information
-            /*printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
+            /*//Print packet information
+            printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
             printf("RSSI: %d, ", readReg(0x1B)-rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
-            printf("Payload: %s\n", message);*/
+            printf("Payload: %s\n", message);   */
             
-            nodeTempData[extractNode(message,msgSize)] = extractData(message,msgSize);
-            printDataTable();
+            
+            
+            //nodeTempData[extractNode(message,msgSize)] = extractData(message,msgSize);
+            //printDataTable();
 
         } // received a message
 
@@ -527,6 +459,103 @@ void txlora(byte *frame, byte datalen) {
     printf("send: %s\n", frame);
 }
 
+/****************************/
+/*Group1 code starts here*/
+
+int extractNode(char*  msg, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'N' && 
+            msg[i+1]    == 'o'){
+            
+            return (int)msg[i+3]-48;
+        }
+    }
+    
+    return -1;
+}
+
+int extractTarget(char*  msg, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'T' && 
+            msg[i+1]    == 'a'){
+            
+            return (int)msg[i+3]-48;
+        }
+    }
+    
+    return -1;
+}
+
+int extractOp(char*  msg, int size){
+    
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'O' && 
+            msg[i+1]    == 'p'){
+            
+            return (int)msg[i+3]-48;
+        }
+    }
+    
+    return -1;
+}
+
+int extractData(char* msg, int size){
+    for(int i = 0; i < size-4; i++){
+        if( msg[i]      == 'D' && 
+            msg[i+1]    == 'a'){
+               
+            return ((((int)msg[i+3]-48)*100)+(((int)msg[i+4]-48)*10) +((int)msg[i+5]-48));
+            //char[3] = {msg[], msg[], msg[]};
+        }
+    }
+    
+    return -1;
+}
+
+void findPath(){
+    //search for direct path 
+    while(strcmp((char*)pathNode, "X")){
+        
+        for(int i = 0; i < 10; i++){
+            for(int j = 0; j < 10; j++){
+                //find path
+                char buffer[] = {(char)(i + 48)};
+                byte m[21] = "No:";
+                strcat((char*)m, (char*)nodeNumber);
+                strcat((char*)m, " Ta:");
+                strcat((char*)m, buffer);
+                strcat((char*)m, " Op:1 Da   ");
+        
+                //Transmit message through the LoRa protocol
+                txlora(m, strlen((char *)m));
+                delay(10);
+                
+                if(receive(message)){
+                    if(extractTarget(message, msgSize) == atoi((char*)nodeNumber)){
+                        //chek if ack 
+                        if(extractOp(message, msgSize) == 2){
+                            //path to master found
+                            strncpy((char *)pathNode, (char*)(i + 48), sizeof(pathNode));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void printDataTable(){
+    printf("Stat update: \n");
+    for(int i = 0; i < 10; i++){
+        printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
+    }
+}
+
+/*Group1 code ends here*/
+/****************************/
 
 /*
  * The content of this function is taken from: https://www.waveshare.com/wiki/Raspberry_Pi_Tutorial_Series:_1-Wire_DS18B20_Sensor
@@ -605,6 +634,11 @@ int main (int argc, char *argv[]) {
     if (argc < 2) {
         printf ("Usage: argv[0] sender|rec [message]\n");
         exit(1);
+    }else if(argc == 3){
+        if(atoi(argv[2]) == 0){
+            printf("Can't start sender with node nr 0");
+            exit(1);
+        }
     }
 
     wiringPiSetup () ;
@@ -631,8 +665,39 @@ int main (int argc, char *argv[]) {
         if (argc > 2) 
             strncpy((char *)nodeNumber, argv[2], sizeof(nodeNumber));
 
-
+        findPath();
         while(1) {
+            
+            if(receive(message)){
+                if(extractTarget(message, msgSize) == atoi((char*)nodeNumber)){
+                    if(extractOp(message, msgSize) == 0){
+                        //send msg
+                        char buffer[1];
+                        byte m[21] = "No:";
+                        strcat((char*)m, (char*)sprintf(buffer, "%d", (extractTarget(message, msgSize) + 48)));
+                        strcat((char*)m, " Ta:");
+                        strcat((char*)m, (char*)targetNode);
+                        strcat((char*)m, " Op:0");
+                        strcat((char*)m, " Da:");
+                        strcat((char*)m, (char*)sprintf(buffer, "%d", (extractData(message, msgSize) + 48)));
+            
+                        //Transmit message through the LoRa protocol
+                        txlora(m, strlen((char *)m));
+                        delay(10);
+                        
+                    }
+                    else{
+                        //send ack
+                        byte m[21] = "No:";
+                        strcat((char*)m, (char*)nodeNumber);
+                        strcat((char*)m, " Ta:");
+                        strcat((char*)m, (char*)extractNode(message,msgSize));
+                        strcat((char*)m, " Op:2");
+                        strcat((char*)m, " Da:   ");
+                    }
+                }
+            }
+            
             
             //get temperature
             char temperature [3];
@@ -641,7 +706,7 @@ int main (int argc, char *argv[]) {
             
             //No:X Ta:X Op:X Da:XXX
             
-            //construct message which shall be sent
+            //send msg
             byte m[21] = "No:";
             strcat((char*)m, (char*)nodeNumber);
             strcat((char*)m, " Ta:");
@@ -655,8 +720,10 @@ int main (int argc, char *argv[]) {
             txlora(m, strlen((char *)m));
             delay(2000);
         }
-    } else {
-
+    } else { // MASTER
+        
+        strncpy((char*)nodeNumber, "0", sizeof(nodeNumber));
+            
         // radio init
         opmodeLora();
         opmode(OPMODE_STANDBY);
@@ -664,8 +731,30 @@ int main (int argc, char *argv[]) {
         printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
         while(1) {
-            receivepacket(); 
+            //receivepacket(); 
             delay(1);
+            if(receive(message)){
+                //Check target
+                if(0 == extractTarget(message, msgSize)){
+                    
+                    //OPERATION SWITCH
+                    if(extractOp(message, msgSize) == 0){
+                        //update and print temperatures
+                        nodeTempData[extractNode(message,msgSize)] = extractData(message,msgSize);
+                        printDataTable();
+                    }
+                    else{
+                        //send ack
+                        byte m[21] = "No:";
+                        strcat((char*)m, (char*)nodeNumber);
+                        strcat((char*)m, " Ta:");
+                        strcat((char*)m, (char*)extractNode(message,msgSize));
+                        strcat((char*)m, " Op:2");
+                        strcat((char*)m, " Da:   ");
+                    }
+                }
+            }
+            
         }
 
     }
