@@ -665,7 +665,7 @@ int main (int argc, char *argv[]) {
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(1000);
-            printf("#################################\n");
+            printf("#################################\n\n");
             /***************************************/
             
             
@@ -714,7 +714,7 @@ int main (int argc, char *argv[]) {
             }
             delay(1);
             }
-            printf("*********************************\n");
+            printf("*********************************\n\n");
             /***************************************/
             
             
