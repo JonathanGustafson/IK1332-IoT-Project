@@ -642,7 +642,7 @@ int main (int argc, char *argv[]) {
         while(1) {
             
             /*********SENDING OWN DATA***********/
-            printf("#################################");
+            printf("#################################\n");
             configTX();
             
             printf("TIME TO SEND MY DATA:\n");
@@ -665,14 +665,14 @@ int main (int argc, char *argv[]) {
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(1000);
-            printf("#################################");
+            printf("#################################\n");
             /***************************************/
             
             
             /***LISTENING FOR MESSAGES TO FORWARD***/
             
             configRX();
-            printf("*********************************");
+            printf("*********************************\n");
             printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
             printf("------------------\n");
             
@@ -714,7 +714,7 @@ int main (int argc, char *argv[]) {
             }
             delay(1);
             }
-            printf("*********************************");
+            printf("*********************************\n");
             /***************************************/
             
             
