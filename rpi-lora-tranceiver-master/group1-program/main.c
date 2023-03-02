@@ -649,7 +649,7 @@ int main (int argc, char *argv[]) {
             
             //get temperature
             char temperature [3];
-            sprintf(temperature,"%d", getRandTemp()); 
+            sprintf(temperature,"%d", getTemp()); 
             strncpy((char*)tempValue, temperature, sizeof(tempValue));
             
             //No:X Ta:X Op:X Da:XXX
