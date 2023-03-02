@@ -11,12 +11,11 @@
  * 
  *******************************************************************************/
 
-//###TEMP INCLUDES###
+//###OUR INCLUDES###
 #include <time.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
-//#include "main.h"
 
 //###################
 
@@ -190,15 +189,20 @@ sf_t sf = SF7;
 // Set center frequency
 uint32_t  freq = 868100000; // in Mhz! (868.1)
 
+//Time variables
+time_t rawtime;
+struct tm * timeinfo;
+
 //Packet information - added by Jonathan Gustafson
 byte nodeNumber[]   = "X";
 byte targetNode[]   = "X";
 byte opCode[]       = "X";
 byte tempValue[]    = "XXX"; //"Data section"
 
-byte pathNode[]     = "X";
+byte pathNode[]     = "X"; //Can probably remove at this point
 
 int nodeTempData[10] = {-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666};
+double nodeUpdateTime[10];
 
 void die(const char *s)
 {
@@ -504,8 +508,8 @@ int extractData(char* msg){
 void printDataTable(){
     printf("Stat update: \n");
     for(int i = 0; i < 10; i++){
-        if(nodeTempData[i] > -273)
-        printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
+        if(nodeTempData[i] > (-273))
+        printf("[Node:%d, Temp:%2.1f °C] - Updated at t = %.2f\n", i, ((float)nodeTempData[i])/10, nodeUpdateTime[i]);
     }
 }
 
@@ -634,10 +638,11 @@ int main (int argc, char *argv[]) {
         if (argc > 3)
             strncpy((char *)targetNode, argv[3], sizeof(nodeNumber));
             
+        
         while(1) {
             
             /*********SENDING OWN DATA***********/
-            
+            printf("#################################");
             configTX();
             
             printf("TIME TO SEND MY DATA:\n");
@@ -660,13 +665,14 @@ int main (int argc, char *argv[]) {
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
             delay(1000);
+            printf("#################################");
             /***************************************/
             
             
             /***LISTENING FOR MESSAGES TO FORWARD***/
             
             configRX();
-            
+            printf("*********************************");
             printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
             printf("------------------\n");
             
@@ -708,12 +714,16 @@ int main (int argc, char *argv[]) {
             }
             delay(1);
             }
-            
+            printf("*********************************");
             /***************************************/
             
             
         }
     } else { // MASTER
+
+        clock_t start_time, end_time;
+        double time_elapsed;
+        start_time = clock();
         
         strncpy((char*)nodeNumber, "0", sizeof(nodeNumber));
             
@@ -728,12 +738,23 @@ int main (int argc, char *argv[]) {
             delay(1);
             if(digitalRead(dio0) == 1){
                 if(receive(message)){
-                    printf("ooo i heard something\n");
                     //Check target
                     if(0 == extractTarget(message)){
+                        
                         //update and print temperatures
-                        nodeTempData[extractNode(message)] = extractData(message);
+                        
+                        
+                        end_time = clock();
+                        time_elapsed = double ((end_time-start_time)*30)/CLOCKS_PER_SEC;
+                        int sendingNode = extractNode(message);
+                        nodeTempData[sendingNode] = extractData(message);
+                        nodeUpdateTime[sendingNode] = time_elapsed;
+                        
+                        system("clear");
+                        printf("Start time: t = 0\n\n");
                         printDataTable();
+                        printf("\nTime elapsed: %.2fs (updated when packet is received)\n", time_elapsed);
+                        
                     }
                 }
             }
