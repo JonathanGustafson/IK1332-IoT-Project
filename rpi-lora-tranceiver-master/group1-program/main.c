@@ -443,8 +443,8 @@ void txlora(byte *frame, byte datalen) {
     writeReg(RegDioMapping1, MAP_DIO0_LORA_TXDONE|MAP_DIO1_LORA_NOP|MAP_DIO2_LORA_NOP);
     // clear all radio IRQ flags
     writeReg(REG_IRQ_FLAGS, 0xFF);
-    // mask all IRQs but TxDone
-    writeReg(REG_IRQ_FLAGS_MASK, ~IRQ_LORA_TXDONE_MASK);
+    // mask all IRQs but TxDone and RX stuffz
+    writeReg(REG_IRQ_FLAGS_MASK, ~(IRQ_LORA_TXDONE_MASK | IRQ_LORA_RXDONE_MASK | IRQ_LORA_RXTOUT_MASK)); //REMOVE "| RX" stuff if shit goes wrong
 
     // initialize the payload size and address pointers
     writeReg(REG_FIFO_TX_BASE_AD, 0x00);
@@ -504,6 +504,7 @@ int extractData(char* msg){
 void printDataTable(){
     printf("Stat update: \n");
     for(int i = 0; i < 10; i++){
+        if(nodeTempData[i] > -273)
         printf("[Node:%d, Temp:%2.1f °C]\n", i, ((float)nodeTempData[i])/10);
     }
 }
@@ -583,6 +584,24 @@ int getRandTemp(){
     return rand() %  1000;
 }
 
+void configTX(){
+
+    //CONFIGURE MODULE FOR TRANSMISSION
+    opmodeLora();
+    opmode(OPMODE_STANDBY);
+    writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
+    configPower(23);
+}
+
+void configRX(){
+
+    //CONFIGURE MODULE FOR Receive
+    opmodeLora();
+    opmode(OPMODE_STANDBY);
+    opmode(OPMODE_RX);
+    
+    }
+
 int main (int argc, char *argv[]) {
 
     if (argc < 2) {
@@ -594,24 +613,18 @@ int main (int argc, char *argv[]) {
             exit(1);
         }
     }
-
+    
+    //Pre loop
     wiringPiSetup () ;
     pinMode(ssPin, OUTPUT);
     pinMode(dio0, INPUT);
     pinMode(RST, OUTPUT);
-
     wiringPiSPISetup(CHANNEL, 500000);
-
     SetupLoRa();
 
     if (!strcmp("sender", argv[1])) {
-        opmodeLora();
-        // enter standby mode (required for FIFO loading))
-        opmode(OPMODE_STANDBY);
+        
 
-        writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
-
-        configPower(23);
 
         printf("Send packets at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
         printf("------------------\n");
@@ -624,6 +637,11 @@ int main (int argc, char *argv[]) {
         while(1) {
             
             /*********SENDING OWN DATA***********/
+            
+            configTX();
+            
+            printf("TIME TO SEND MY DATA:\n");
+            
             //get temperature
             char temperature [3];
             sprintf(temperature,"%d", getRandTemp()); 
@@ -641,36 +659,54 @@ int main (int argc, char *argv[]) {
             
             //Transmit message through the LoRa protocol
             txlora(m, strlen((char *)m));
-            delay(8000);
+            delay(1000);
             /***************************************/
             
             
             /***LISTENING FOR MESSAGES TO FORWARD***/
             
+            configRX();
+            
+            printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
+            printf("------------------\n");
+            
+            for(int i = 0; i < 8000; i++){
+            
             if(digitalRead(dio0) == 1){
                 if(receive(message)){
+                    
                     //Check target 
                     printf("My nodeNumber: %d, Message target: %d\n", atoi((char*)nodeNumber), extractTarget(message));
                     if(atoi((char*)nodeNumber) == extractTarget(message)){
+    
                         //forward message
-                        printf("I got a message that i will now forward cuz im a good node \n");
+                        //printf("I got a message that i will now forward cuz im a good node \n");
                         byte fwdMsg[msgSize];
                         strcpy((char*)fwdMsg, (char*)message);
-                        printf("This is the message i got: %s", (char*)fwdMsg);
+                        //printf("This is the message i got: %s\n", (char*)fwdMsg);
                         //find target index
-                        int i = 0;
-                        while( !(fwdMsg[i]   == 'T' &&
-                                fwdMsg[i+1] == 'a' &&
-                                fwdMsg[i+2] == ':')){
-                            i++;
+                        int j = 0;
+                        while( !(fwdMsg[j]   == 'T' &&
+                                fwdMsg[j+1] == 'a' &&
+                                fwdMsg[j+2] == ':')){
+                            j++;
                         }
-                        fwdMsg[i+3] = (char)targetNode[0];
+                        fwdMsg[j+3] = (char)targetNode[0];
                         
-                        printf("This is the message i will forward: %s", (char*)fwdMsg);
+                        printf("Forwarding this packet: %s\n", (char*)fwdMsg);
+                        
                         //Transmit message through the LoRa protocol
+                        
+                        //CONFIGURE MODULE FOR TRANSMISSION
+                        configTX();
                         txlora(fwdMsg, strlen((char *)fwdMsg));
+                        delay(2000);
+                        
                     }
+                    i = 8000;
                 }
+            }
+            delay(1);
             }
             
             /***************************************/
