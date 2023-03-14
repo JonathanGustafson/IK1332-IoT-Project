@@ -203,6 +203,7 @@ byte pathNode[]     = "X"; //Can probably remove at this point
 
 int nodeTempData[10] = {-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666,-6666};
 double nodeUpdateTime[10];
+int nodeRSSI[10];
 
 void die(const char *s)
 {
@@ -359,12 +360,12 @@ boolean receive(char *payload) {
 }
 
 /*
- * EDITED BY JONATHAN GUSTAFSON
+ * this function has been edited by group1
  */
 void receivepacket() {
 
     long int SNR;
-    int rssicorr;
+    //int rssicorr;
 
     if(digitalRead(dio0) == 1)
     {
@@ -382,13 +383,14 @@ void receivepacket() {
                 SNR = ( value & 0xFF ) >> 2;
             }
             
+            /*
             if (sx1272) {
                 rssicorr = 139;
             } else {
                 rssicorr = 157;
             }
 
-            /*//Print packet information
+            //Print packet information
             printf("Packet RSSI: %d, ", readReg(0x1A)-rssicorr);
             printf("RSSI: %d, ", readReg(0x1B)-rssicorr);
             printf("SNR: %li, ", SNR);
@@ -419,9 +421,9 @@ static void configPower (int8_t pw) {
         writeReg(RegPaDac, readReg(RegPaDac)|0x4);
 
     } else {
-        // set PA config (2-17 dBm using PA_BOOST)
-        if(pw > 17) {
-            pw = 17;
+        // set PA config (2-17 dBm using PA_BOOST) OBS! this function is currently tweeked from 17dbm to 23 dmb (by group1)
+        if(pw > 23) {
+            pw = 23;
         } else if(pw < 2) {
             pw = 2;
         }
@@ -509,12 +511,9 @@ void printDataTable(){
     printf("Stat update: \n");
     for(int i = 0; i < 10; i++){
         if(nodeTempData[i] > (-273))
-        printf("[Node:%d, Temp:%2.1f °C] - Updated at t = %.2f\n", i, ((float)nodeTempData[i])/10, nodeUpdateTime[i]);
+        printf("[Node:%d, Temp:%2.1f °C, RSSI:%d dbm] - Updated at t = %.2f\n", i, ((float)nodeTempData[i])/10, nodeRSSI[i], nodeUpdateTime[i]);
     }
 }
-
-/*Group1 code ends here*/
-/****************************/
 
 /*
  * The content of this function is taken from: https://www.waveshare.com/wiki/Raspberry_Pi_Tutorial_Series:_1-Wire_DS18B20_Sensor
@@ -604,7 +603,7 @@ void configRX(){
     opmode(OPMODE_STANDBY);
     opmode(OPMODE_RX);
     
-    }
+}
 
 int main (int argc, char *argv[]) {
 
@@ -676,7 +675,7 @@ int main (int argc, char *argv[]) {
             printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
             printf("------------------\n");
             
-            for(int i = 0; i < 8000; i++){
+            for(int i = 0; i < 4000; i++){
             
             if(digitalRead(dio0) == 1){
                 if(receive(message)){
@@ -706,10 +705,10 @@ int main (int argc, char *argv[]) {
                         //CONFIGURE MODULE FOR TRANSMISSION
                         configTX();
                         txlora(fwdMsg, strlen((char *)fwdMsg));
-                        delay(2000);
+                        delay(100);
                         
                     }
-                    i = 8000;
+                    i = 4000;
                 }
             }
             delay(1);
@@ -726,6 +725,8 @@ int main (int argc, char *argv[]) {
         start_time = clock();
         
         strncpy((char*)nodeNumber, "0", sizeof(nodeNumber));
+        
+        int rssicorr;
             
         // radio init
         opmodeLora();
@@ -747,8 +748,17 @@ int main (int argc, char *argv[]) {
                         end_time = clock();
                         time_elapsed = double ((end_time-start_time)*30)/CLOCKS_PER_SEC;
                         int sendingNode = extractNode(message);
+                        
+                        if (sx1272) {
+                        rssicorr = 139;
+                        } else {
+                            rssicorr = 157;
+                        }
+                        
                         nodeTempData[sendingNode] = extractData(message);
                         nodeUpdateTime[sendingNode] = time_elapsed;
+                        nodeRSSI[sendingNode] = readReg(0x1A)-rssicorr;
+                        
                         
                         system("clear");
                         printf("Start time: t = 0\n\n");
@@ -764,3 +774,5 @@ int main (int argc, char *argv[]) {
 
     return (0);
 }
+/*Group1 code ends here*/
+/****************************/
